@@ -34,6 +34,11 @@ def clear_chat_history():
     st.session_state.messages = [{"role": "assistant", "content": "How may I assist you today?"}]
 st.sidebar.button('Clear Chat History', on_click=clear_chat_history)
 
+# Model parameters
+temperature = st.sidebar.slider('Temperature', min_value=0.01, max_value=1.0, value=0.1, step=0.01)
+top_p = st.sidebar.slider('Top_p', min_value=0.01, max_value=1.0, value=0.9, step=0.01)
+max_length = st.sidebar.slider('Max Length', min_value=32, max_value=4096, value=4096, step=32)
+
 # Function to encode and process image with Groq LLaVA
 def process_image_and_text(image=None, text=None):
     client = Groq(api_key=groq_api_key)
@@ -55,6 +60,9 @@ def process_image_and_text(image=None, text=None):
     chat_completion = client.chat.completions.create(
         messages=[{"role": "user", "content": messages}],
         model="llava-v1.5-7b-4096-preview",
+        temperature=temperature,
+        top_p=top_p,
+        max_length=max_length
     )
 
     return chat_completion.choices[0].message.content
