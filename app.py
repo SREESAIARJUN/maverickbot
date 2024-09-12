@@ -70,21 +70,12 @@ def generate_llama2_response(prompt_input, image=None):
     return output
 
 # User interface for prompt and image upload
-st.markdown("<style> .floating-button { position: relative; display: inline-block; } </style>", unsafe_allow_html=True)
-
 col1, col2 = st.columns([1, 0.1])
 with col1:
     user_input = st.text_input("Type your message here...")
 
 with col2:
-    # Custom "floating" image uploader
-    image_input = st.file_uploader("", type=["jpg", "jpeg", "png"], label_visibility="gone", key="image_input", 
-                                    help="Upload an image (click here or drag to this area)", 
-                                    accept_multiple_files=False)
-
-    if st.button("Upload Image", key="upload_img", help="Upload an image", 
-                 use_container_width=True, css_class="floating-button"):
-        image_input
+    image_input = st.file_uploader("", type=["jpg", "jpeg", "png"], label_visibility="gone", key="image_input")
 
 # Generate a new response if the prompt is submitted
 if st.button("Send", disabled=not replicate_api):
