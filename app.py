@@ -10,9 +10,9 @@ with st.sidebar:
     st.title('💬 mavericks chatbot')
     st.write("This chatbot is built using Meta's open-source LLaMA 2 LLM for advanced language processing, combined with the LLaVA model to enhance its image recognition capabilities.")
 
-    if 'replicate_api_token' in st.secrets:
+    if 'REPLICATE_API_TOKEN' in st.secrets:
         st.success('API key already provided!', icon='✅')
-        replicate_api = st.secrets['replicate_api_token']
+        replicate_api = st.secrets['REPLICATE_API_TOKEN']
     else:
         replicate_api = st.text_input('Enter Replicate API token:', type='password')
         if not (replicate_api.startswith('r8_') and len(replicate_api) == 40):
