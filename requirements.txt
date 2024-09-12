@@ -1,2 +1,5 @@
 streamlit
 replicate
+groq
+base64
+os
