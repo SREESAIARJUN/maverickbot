@@ -5,6 +5,19 @@ import os
 # app title
 st.set_page_config(page_title="💬 mavericks bot")
 
+# Custom CSS to style the image uploader
+st.markdown(
+    """
+    <style>
+        .small-uploader {
+            width: 150px;  /* Width of the uploader */
+            margin: auto;  /* Centering the uploader */
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # replicate credentials
 with st.sidebar:
     st.title('💬 mavericks chatbot')
@@ -49,7 +62,7 @@ if prompt := st.chat_input(disabled=not replicate_api):
     with st.chat_message("user"):
         st.write(prompt)
 
-# Generate a new response if the last message is not from the assistant
+# Generate a new response if the last message is not from assistant
 if st.session_state.messages and st.session_state.messages[-1]["role"] != "assistant":
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
@@ -64,4 +77,6 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] != "assis
     st.session_state.messages.append(message)
 
 # Upload Image
-uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
+st.markdown('<div class="small-uploader">', unsafe_allow_html=True)
+uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+st.markdown('</div>', unsafe_allow_html=True)
