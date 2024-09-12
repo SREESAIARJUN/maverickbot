@@ -88,8 +88,9 @@ if prompt:
     with st.chat_message("user"):
         st.write(prompt)
 
-    # Process image if uploaded
+    # Display image if uploaded and process it
     if image:
+        st.image(image, caption="Uploaded Image", use_column_width=True)  # Display the uploaded image
         with st.spinner("Processing image..."):
             image_description = process_image(image)
             st.session_state.messages.append({"role": "assistant", "content": image_description})
