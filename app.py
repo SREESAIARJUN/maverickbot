@@ -45,7 +45,7 @@ st.sidebar.button('Clear Chat History', on_click=clear_chat_history)
 
 # Function for generating LLaMA2 response. Refactored from https://github.com/a16z-infra/llama2-chatbot
 def generate_llama2_response(prompt_input):
-    string_dialogue = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'."
+    string_dialogue = "You are Mavericks Bot, an advanced AI assistant created by Team Mavericks. You possess sophisticated image recognition capabilities, allowing you to analyze and understand visual content. When interacting with users, you should leverage these capabilities to provide accurate and insightful responses related to the images they provide. Your primary function is to assist users by interpreting images and integrating this information into your responses."
     for dict_message in st.session_state.messages:
         if dict_message["role"] == "user":
             string_dialogue += "User: " + dict_message["content"] + "\n\n"
@@ -58,8 +58,6 @@ def generate_llama2_response(prompt_input):
 
 # User-provided prompt
 if prompt := st.chat_input(disabled=not replicate_api):
-    # Upload Image
-    uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
