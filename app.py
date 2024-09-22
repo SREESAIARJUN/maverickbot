@@ -1,110 +1,180 @@
-#llama + llava
-
+# Author : Arjun Sai
 
 import streamlit as st
-import replicate
 import os
-import base64
-from groq import Groq
+import time
+import google.generativeai as genai
+from io import BytesIO
+import tempfile
 
 # App title and configuration
-st.set_page_config(page_title="💬 Mavericks Bot")
+st.set_page_config(page_title="💬 Mavericks Bot", layout="wide")
 
-# Replicate and Groq Credentials
+# Define style constants for professional tool
+USER_COLOR = "#E8E8E8"  # Muted green for user message background
+MODEL_COLOR = "#036165"  # Professional blue for model message background
+USER_TEXT_COLOR = "#000000"  # White text for all messages for contrast
+MODEL_TEXT_COLOR = "#FFFFFF"
+BORDER_RADIUS = "8px"  # Rounded corners for chat bubbles
+FONT_FAMILY = "Arial, sans-serif"  # Professional font family
+USER_LOGO = "🧑‍💻"  # User's logo
+MODEL_LOGO = "🤖"  # Model's logo
+
+# Sidebar: API key and model parameters
 with st.sidebar:
     st.title('💬 Mavericks Chatbot')
-    st.write("This chatbot is built using Meta's open-source Llama 2 LLM for advanced language processing, combined with the Llava model to enhance its image recognition capabilities.")
+    st.write("This chatbot uses Google's Gemini API for advanced language, image, audio, video, and document processing.")
     
-    if 'REPLICATE_API_TOKEN' in st.secrets and 'GROQ_API_KEY' in st.secrets:
-        st.success('API keys provided!', icon='✅')
-        replicate_api = st.secrets['REPLICATE_API_TOKEN']
-        groq_api_key = st.secrets['GROQ_API_KEY']
-    else:
-        replicate_api = st.text_input('Enter Replicate API token:', type='password')
-        groq_api_key = st.text_input('Enter Groq API key:', type='password')
-        if not (replicate_api.startswith('r8_') and len(replicate_api) == 40):
-            st.warning('Please enter valid Replicate API credentials!', icon='⚠')
-        if not (groq_api_key):
-            st.warning('Please enter valid Groq API credentials!', icon='⚠')
+    # API key input
+    gemini_api_key = st.secrets.get('GEMINI_API_KEY') or st.text_input('Enter Gemini API key:', type='password')
     
-    os.environ['REPLICATE_API_TOKEN'] = replicate_api
-    os.environ['GROQ_API_KEY'] = groq_api_key
-
-    st.subheader('Models and parameters')
-    selected_model = st.selectbox('Choose a Llama2 model', ['Llama2-7B', 'Llama2-13B'])
-    if selected_model == 'Llama2-7B':
-        llm = 'a16z-infra/llama7b-v2-chat:4f0a4744c7295c024a1de15e1a63c880d3da035fa1f49bfd344fe076074c8eea'
+    if gemini_api_key:
+        genai.configure(api_key=gemini_api_key)
+        st.success('API key provided!', icon='✅')
     else:
-        llm = 'a16z-infra/llama13b-v2-chat:df7690f1994d94e96ad9d568eac121aecf50684a0b0963b25a41cc40061269e5'
+        st.warning('Please enter valid Gemini API credentials!', icon='⚠')
 
-    temperature = st.slider('temperature', min_value=0.01, max_value=1.0, value=0.5, step=0.01)
-    top_p = st.slider('top_p', min_value=0.01, max_value=1.0, value=0.9, step=0.01)
-    max_length = st.slider('max_length', min_value=32, max_value=4096, value=4096, step=32)
+    # Multimedia input options
+    st.subheader('Input Types')
+    use_image = st.checkbox("Upload Image")
+    use_video = st.checkbox("Upload Video")
 
-# Store LLM generated responses
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "How may I assist you today?"}]
+    # Adjustable model parameters
+    st.subheader('Model Parameters')
+    temperature = st.slider("Temperature", 0.0, 2.0, 1.0, step=0.1)
+    top_p = st.slider("Top P", 0.0, 1.0, 0.95, step=0.05)
+    top_k = st.slider("Top K", 1, 100, 64)
+    max_output_tokens = st.slider("Max Output Tokens", 100, 8192, 8192)
+
+# Model configuration
+generation_config = {
+    "temperature": temperature,
+    "top_p": top_p,
+    "top_k": top_k,
+    "max_output_tokens": max_output_tokens,
+}
+
+# Function for uploading file using the File API
+def upload_file_to_gemini(file_bytes, mime_type):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{mime_type.split('/')[-1]}") as temp_file:
+        temp_file.write(file_bytes)
+        temp_file_path = temp_file.name
+    
+    file = genai.upload_file(path=temp_file_path)
+    os.unlink(temp_file_path)  # Clean up the temporary file
+    return file
+
+# Function to wait for files to be ready
+def wait_for_file_active(file):
+    while True:
+        updated_file = genai.get_file(file.name)
+        if updated_file.state.name == "ACTIVE":
+            return updated_file
+        elif updated_file.state.name == "FAILED":
+            raise ValueError(f"File {file.name} failed to process")
+        time.sleep(10)
 
 # Display or clear chat messages
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "model", "content": "How may I assist you today?"}]
+
+def display_message(message):
+    """Display a message with custom alignment, color, and logos."""
+    if message["role"] == "user":
+        st.markdown(
+            f"""
+            <div style='display: flex; justify-content: flex-end;'>
+                <div style='background-color: {USER_COLOR}; color: {USER_TEXT_COLOR}; padding: 10px; 
+                border-radius: {BORDER_RADIUS}; margin: 5px; max-width: 70%; font-family: {FONT_FAMILY};'>
+                    <span>{message["content"]}</span> <span>{USER_LOGO}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f"""
+            <div style='display: flex; justify-content: flex-start;'>
+                <div style='background-color: {MODEL_COLOR}; color: {MODEL_TEXT_COLOR}; padding: 10px; 
+                border-radius: {BORDER_RADIUS}; margin: 5px; max-width: 70%; font-family: {FONT_FAMILY};'>
+                    <span>{MODEL_LOGO}</span> <span>{message["content"]}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True
+        )
+
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
+    display_message(message)
 
 def clear_chat_history():
-    st.session_state.messages = [{"role": "assistant", "content": "How may I assist you today?"}]
+    st.session_state.messages = [{"role": "model", "content": "How may I assist you today?"}]
 st.sidebar.button('Clear Chat History', on_click=clear_chat_history)
 
-# Function for generating LLaMA2 response
-def generate_llama2_response(prompt_input):
-    string_dialogue = "You are Mavericks Bot, an advanced AI assistant created by Team Mavericks. You possess sophisticated image recognition capabilities, allowing you to analyze and understand visual content."
-    for dict_message in st.session_state.messages:
-        string_dialogue += f"{dict_message['role'].capitalize()}: {dict_message['content']}\n\n"
-    
-    output = replicate.run(llm, input={"prompt": f"{string_dialogue} {prompt_input} Assistant: ",
-                                       "temperature": temperature, "top_p": top_p, "max_length": max_length, "repetition_penalty": 1})
-    return output
-
-# Function to encode and process image with Groq LLaVA
-def process_image(image):
-    base64_image = base64.b64encode(image.read()).decode('utf-8')
-    client = Groq(api_key=groq_api_key)
-    
-    chat_completion = client.chat.completions.create(
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Describe the image. Note: your response will be again passed to another llm."},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
-            ],
-        }],
-        model="llava-v1.5-7b-4096-preview",
+# Function for generating response from Gemini, including chat history
+def generate_gemini_response(prompt_input, files=None):
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-pro",
+        generation_config=generation_config,
+        safety_settings=[
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ],
+        system_instruction="You are Mavericks Bot, an advanced AI assistant created by Team Mavericks. You possess sophisticated image and video recognition capabilities, allowing you to analyze, understand, and provide insights on visual content. You engage in real-time interactions by analyzing images and videos uploaded by users. Additionally, you support multimedia-based responses and generate insights or summaries based on visual content."
     )
     
-    return chat_completion.choices[0].message.content
+    chat = model.start_chat(history=[
+        {"role": msg["role"], "parts": [msg["content"]]}
+        for msg in st.session_state.messages
+    ])
+    
+    contents = []
+    if files:
+        contents.extend(files)
+    contents.append(prompt_input)
+    
+    response = chat.send_message(contents)
+    return response.text
 
-# User input
-image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-prompt = st.chat_input(disabled=not replicate_api or not groq_api_key)
+# Main content: File Upload and Chat Input
+files = []
+prompt = st.chat_input(placeholder="Type your message here...")
 
+if use_image:
+    image = st.file_uploader("Upload an image", type=["png", "jpeg", "webp", "heic", "heif"])
+    if image:
+        image_bytes = image.read()
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.session_state.messages.append({"role": "model", "content": "Processing image... 🖼️"})
+        image_file = upload_file_to_gemini(image_bytes, image.type)
+        files.append(wait_for_file_active(image_file))
+        st.session_state["use_image"] = False  # Untick image checkbox after upload
+
+if use_video:
+    video = st.file_uploader("Upload a video", type=["mp4", "mpeg", "mov", "avi", "x-flv", "mpg", "webm", "wmv", "3gpp"])
+    if video:
+        video_bytes = video.read()
+        st.video(video)
+        st.session_state.messages.append({"role": "model", "content": "Processing video... 🎬"})
+        video_file = upload_file_to_gemini(video_bytes, video.type)
+        files.append(wait_for_file_active(video_file))
+        st.session_state["use_video"] = False  # Untick video checkbox after upload
+
+# Generate response when a prompt is entered
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.write(prompt)
+    display_message({"role": "user", "content": prompt})
 
-    # Display image if uploaded and process it
-    if image:
-        st.image(image, caption="Uploaded Image", use_column_width=True)  # Display the uploaded image
-        with st.spinner("Processing image..."):
-            image_description = process_image(image)
-            st.session_state.messages.append({"role": "assistant", "content": image_description})
-            prompt += f" (Image description: {image_description})"
-    
-    # Generate Llama2 response
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            response = generate_llama2_response(prompt)
-            placeholder = st.empty()
-            full_response = ''.join(response)
-            placeholder.markdown(full_response)
-    
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    # Generate response from Gemini
+    with st.spinner("Thinking... 🤔"):
+        response = generate_gemini_response(prompt, files)
+        st.session_state.messages.append({"role": "model", "content": response})
+        display_message({"role": "model", "content": response})
+
+# Ensure checkboxes are unticked after file upload
+if "use_image" in st.session_state and not st.session_state["use_image"]:
+    st.session_state["use_image"] = False
+
+if "use_video" in st.session_state and not st.session_state["use_video"]:
+    st.session_state["use_video"] = False
