@@ -26,7 +26,8 @@ with st.sidebar:
     st.write("This chatbot uses Google's Gemini API for advanced language, image, audio, video, and document processing.")
     
     # API key input
-    gemini_api_key = st.secrets.get('GEMINI_API_KEY') or st.text_input('Enter Gemini API key:', type='password')
+    gemini_api_key = "AIzaSyD3TJWRUn86uCAJHVDuKYntMcOnDKYYvDU"
+    #st.secrets.get('GEMINI_API_KEY') or st.text_input('Enter Gemini API key:', type='password')
     
     if gemini_api_key:
         genai.configure(api_key=gemini_api_key)
